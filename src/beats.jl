@@ -4,9 +4,13 @@ using MusicManipulations
 const quarter = 960 # duration per quarter note
 
 position(note) = note.position
-shift!(note, field, amount) = setfield!(note, Symbol(field), getfield(note, Symbol(field)) + round(UInt, amount))
 scale!(note, field, amount) = setfield!(note, Symbol(field), round(UInt, getfield(note, Symbol(field)) * amount))
 MusicManipulations.Notes(x::Vector{Notes{Note}}) = MusicManipulations.Notes(collect(Iterators.flatten(x)))
+
+function shift!(note, field, amount)
+    properfield = getfield(note, Symbol(field))
+    setfield!(note, Symbol(field), properfield + round(typeof(properfield), amount))
+end
 
 function contract!(items, into)
     intoend = into.position + into.duration
@@ -20,7 +24,7 @@ function contract!(items, into)
     shift!.(items, :position, into.position - itemsbegin)
 end
 
-function IFS(notes, iterations, levels=[])
+function IFS(notes, iterations, levels=Vector{Notes{Note}}())
     push!(levels, notes)
     if iterations == 0
         return levels
@@ -29,12 +33,24 @@ function IFS(notes, iterations, levels=[])
     for note in notes
         newnotes = copy(notes)
         contract!(newnotes, note)
+        #shift!.(newnotes, :pitch, 1)
         push!(level, newnotes)
     end
     iterations -= 1
     return IFS(Notes(level), iterations, levels)
 end
 
+function makeMIDIfile(fractal, location)
+    file = MIDIFile()
+    for (level, notes) in enumerate(fractal)
+        track = MIDITrack()
+        addnotes!(track, notes)
+        addtrackname!(track, "level$level")
+        push!(file.tracks, track)
+    end
+    writeMIDIFile(location, file)
+end
 
 startnotes = Notes([Note(42, 100, 0, 2*quarter), Note(42, 100, 2*quarter, quarter), Note(42, 100, 3*quarter, quarter)])
-fractal = IFS(startnotes, 1)
+fractal = IFS(startnotes, 2)
+makeMIDIfile(fractal, "examples/ifs2.mid")
