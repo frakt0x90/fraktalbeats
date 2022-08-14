@@ -1,7 +1,7 @@
 using MusicManipulations
 
 
-const quarter = 960 # duration per quarter note
+const quarter = 960 # MIDI duration per quarter note
 
 position(note) = note.position
 scale!(note, field, amount) = setfield!(note, Symbol(field), round(UInt, getfield(note, Symbol(field)) * amount))
@@ -24,20 +24,37 @@ function contract!(items, into)
     shift!.(items, :position, into.position - itemsbegin)
 end
 
+function pitchcontract(notes::Notes{Note})
+    newpitches = Vector{Int}()
+    tonediffs = pitches(notes) .- convert(Int64, notes[1].pitch)
+    for note in notes
+        for tonediff in tonediffs
+            newpitch = note.pitch + tonediff
+            push!(newpitches, newpitch)
+        end
+    end
+    return newpitches
+end
+
+#TODO: I think this can be simplified to just use notes instead of vectors of Notes{Note} for each level.
 function IFS(notes, iterations, levels=Vector{Notes{Note}}())
     push!(levels, notes)
     if iterations == 0
         return levels
     end
-    level = Vector{Notes{Note}}()  # TODO: speed up by calcualting length and assigning.
+    level = Vector{Notes{Note}}()
     for note in notes
         newnotes = copy(notes)
         contract!(newnotes, note)
-        #shift!.(newnotes, :pitch, 1)
         push!(level, newnotes)
     end
+    level = Notes(level)
+    melody = pitchcontract(notes)
+    for (notei, note) in enumerate(level)
+        level.notes[notei].pitch = melody[notei]
+    end
     iterations -= 1
-    return IFS(Notes(level), iterations, levels)
+    return IFS(level, iterations, levels)
 end
 
 function makeMIDIfile(fractal, location)
@@ -51,6 +68,9 @@ function makeMIDIfile(fractal, location)
     writeMIDIFile(location, file)
 end
 
-startnotes = Notes([Note(42, 100, 0, 2*quarter), Note(42, 100, 2*quarter, quarter), Note(42, 100, 3*quarter, quarter)])
-fractal = IFS(startnotes, 2)
+#Note is pitch vel, pos, dur
+startnotes = Notes([Note(67, 100, 0, 2*quarter), Note(74, 100, 2*quarter, quarter), Note(71, 100, 3*quarter, quarter)])
+#startnotes = Notes([Note(42, 100, 0, 2*quarter), Note(42, 100, 2*quarter, quarter/3), Note(42, 100, 2*quarter + quarter/3, quarter/3), Note(42, 100, 2*quarter + 2*quarter/3, quarter/3), Note(42, 100, 3*quarter, quarter)])
+iterations = 2
+fractal = IFS(startnotes, iterations)
 makeMIDIfile(fractal, "examples/ifs2.mid")
