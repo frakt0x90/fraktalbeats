@@ -1,9 +1,47 @@
 using MusicManipulations
+using Base.Iterators
 
 
 const quarter = 960 # MIDI duration per quarter note
+const major_pat = [2, 2, 1, 2, 2, 2, 1]
+const minor_pat = [2, 1, 2, 2, 1, 2, 2]
+const harm_minor_pat = [2, 1, 2, 2, 1, 3, 1]
+const rootnotes = (c=0, c♯=1, d♭=1, d=2, d♯=3, e♭=3, e=4, f=5, f♯=6, g♭=6, g=7, g♯=8, a♭=8, a=9, a♯=10, b♭=10, b=11)
+const midi_maxpitch = 127
 
-position(note) = note.position
+struct Scale
+    pattern::Vector{Int}
+    iterator::Iterators.Cycle{Vector{Int}}
+    root::Symbol
+end
+
+Scale(pattern, root) = Scale(pattern, cycle(pattern), root)
+
+function mode(index::Int, scale::Scale)
+    newpattern = circshift(scale.pattern, -index + 1)
+    Scale(newpattern, scale.root + index - 1)
+end
+
+function lock!(notes::Notes{Note}, scale::Scale)
+    scalenotes = generate_notes(scale)
+    for note in notes
+        closestnote = argmin(abs.(note.pitch .- scalenotes))
+        note.pitch = scalenotes[closestnote]
+    end
+end
+
+function generate_notes(scale::Scale)
+    startnote = rootnotes[scale.root]
+    notes = [startnote]
+    for step in scale.iterator
+        startnote += step
+        if startnote > midi_maxpitch
+            return notes
+        end
+        push!(notes, startnote)
+    end
+end
+
 scale!(note, field, amount) = setfield!(note, Symbol(field), round(UInt, getfield(note, Symbol(field)) * amount))
 MusicManipulations.Notes(x::Vector{Notes{Note}}) = MusicManipulations.Notes(collect(Iterators.flatten(x)))
 
@@ -36,7 +74,7 @@ function pitchcontract(notes::Notes{Note})
     return newpitches
 end
 
-#TODO: I think this can be simplified to just use notes instead of vectors of Notes{Note} for each level.
+#TODO: Maybe can be simplified to just use notes instead of vectors of Notes{Note} for each level.
 function IFS(notes, iterations, levels=Vector{Notes{Note}}())
     push!(levels, notes)
     if iterations == 0
@@ -68,9 +106,14 @@ function makeMIDIfile(fractal, location)
     writeMIDIFile(location, file)
 end
 
-#Note is pitch vel, pos, dur
-startnotes = Notes([Note(67, 100, 0, 2*quarter), Note(74, 100, 2*quarter, quarter), Note(71, 100, 3*quarter, quarter)])
-#startnotes = Notes([Note(42, 100, 0, 2*quarter), Note(42, 100, 2*quarter, quarter/3), Note(42, 100, 2*quarter + quarter/3, quarter/3), Note(42, 100, 2*quarter + 2*quarter/3, quarter/3), Note(42, 100, 3*quarter, quarter)])
+
+#Note(pitch vel, pos, dur)
+melodystart = Notes([Note(69, 100, 0, 2*quarter), Note(76, 100, 2*quarter, quarter), Note(72, 100, 3*quarter, quarter)])
+drumstart = Notes([Note(42, 100, 0, quarter), Note(42, 100, quarter, quarter + quarter/2), Note(42, 100, 2*quarter + quarter/2, quarter/2), Note(42, 100, 3*quarter, quarter)])
 iterations = 2
-fractal = IFS(startnotes, iterations)
-makeMIDIfile(fractal, "examples/ifs2.mid")
+melodyscale = Scale(minor_pat, :a)
+melody = IFS(melodystart, iterations)
+lock!.(melody, Ref(melodyscale))
+drums = IFS(drumstart, iterations)
+makeMIDIfile(melody, "examples/ifsmelody.mid")
+makeMIDIfile(drums, "examples/ifsdrums.mid")
