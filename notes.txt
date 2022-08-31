@@ -1,0 +1,3 @@
+stochastic l system
+dynamic l system where rules change as it's evolving
+multi-symbol rules?

@@ -95,6 +95,23 @@ function IFS(notes, iterations, levels=Vector{Notes{Note}}())
     return IFS(level, iterations, levels)
 end
 
+function lsystem(axiom::String, rules, iterations, theorems=Vector{String}())
+    push!(theorems, axiom)
+    if iterations == 0
+        return theorems
+    end
+    theorem = ""
+    for symbol in axiom
+        theorem *= rules[Symbol(symbol)]
+    end
+    iterations -= 1
+    return lsystem(theorem, rules, iterations, theorems)
+end
+
+function pitch_system(theorems::Vector{String}, mappings, startnote)
+
+end
+
 function makeMIDIfile(fractal, location)
     file = MIDIFile()
     for (level, notes) in enumerate(fractal)
@@ -108,8 +125,8 @@ end
 
 
 #Note(pitch vel, pos, dur)
-melodystart = Notes([Note(69, 100, 0, 2*quarter), Note(76, 100, 2*quarter, quarter), Note(72, 100, 3*quarter, quarter)])
-drumstart = Notes([Note(42, 100, 0, quarter), Note(42, 100, quarter, quarter + quarter/2), Note(42, 100, 2*quarter + quarter/2, quarter/2), Note(42, 100, 3*quarter, quarter)])
+melodystart = Notes([Note(69, 100, 0, quarter), Note(64, 100, quarter, quarter), Note(65, 100, 2*quarter, quarter), Note(64, 100, 3*quarter, quarter)])
+drumstart = Notes([Note(42, 100, 0, quarter), Note(42, 100, quarter, quarter/2), Note(42, 100, quarter + quarter/2, quarter/2), Note(42, 100, 2*quarter, quarter), Note(42, 100, 3*quarter, quarter)])
 iterations = 2
 melodyscale = Scale(minor_pat, :a)
 melody = IFS(melodystart, iterations)
